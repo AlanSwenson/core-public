@@ -157,11 +157,11 @@ contract WoolPouch is ERC721Upgradeable, OwnableUpgradeable, PausableUpgradeable
     return string(abi.encodePacked(
       '<svg id="woolpouch" width="100%" height="100%" version="1.1" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">'
       '<image x="0" y="0" width="64" height="64" image-rendering="pixelated" preserveAspectRatio="xMidYMid" xlink:href="data:image/gif;base64,',gif,
-      '"/><text font-family="monospace"><tspan x="4" y="4" font-size="0.25em">Locked WOOL:</tspan><tspan id="g" x="44" y="3" font-size="0.25em">',
+      '"/><text font-family="monospace"><tspan x="4" y="4" font-size="0.25em">Remaining WOOL:</tspan><tspan id="g" x="44" y="4" font-size="0.25em">',
       (guaranteed / 1 ether).toString(),
-      '</tspan></text><text font-family="monospace"><tspan x="4" y="9" font-size="0.25em">Claimable WOOL:</tspan><tspan id="b" x="44" y="8" font-size="0.25em">',
+      '</tspan></text><text font-family="monospace"><tspan x="4" y="9" font-size="0.25em">Claimable WOOL:</tspan><tspan id="b" x="44" y="9" font-size="0.25em">',
       (amountAvailable(tokenId) / 1 ether).toString(),
-      '</tspan></text><text fill="red" font-family="monospace"><tspan x="2" y="13" font-size="0.125em">Assume that if you buy, there will be ',
+      '</tspan></text><text fill="red" font-family="monospace"><tspan x="1" y="13" font-size="0.125em">Assume that if you buy, there will be ',
       (guaranteed / 1 ether).toString(),
       ' available to claim</tspan></text>',
       '</svg>'
