@@ -109,6 +109,8 @@ contract RiskyGame is
     LINK = LinkTokenInterface(_LINK);
     vrfCoordinator = _vrfCoordinator;
 
+    riskGameWool = MAXIMUM_WOOL - TOTAL_CLAIMED_WOOL - STAKED_EARNINGS;
+
     _pause();
     optInsEnabled = true;
   }
@@ -128,7 +130,7 @@ contract RiskyGame is
       require(_isSheep(tokenIds[i]), "WOLVES CANT PLAY IT SAFE");
       require(getTokenState(tokenIds[i]) == STATE_UNDECIDED, "CANT CLAIM TWICE");
       temp = getWoolDue(tokenIds[i]);
-      // set state to stop reentrancy
+      
       setTokenState(tokenIds[i], STATE_EXECUTED);
       if (separatePouches) {
         woolPouch.mint(_msgSender(), temp * 4 / 5, 365 * 4); // charge 20% tax
@@ -174,7 +176,6 @@ contract RiskyGame is
       require(woolfReborn.ownerOf(tokenIds[i]) == _msgSender(), "SWIPER NO SWIPING");
       require(_isSheep(tokenIds[i]), "WOLVES CANT TAKE THIS RISK");
       require(getTokenState(tokenIds[i]) == STATE_OPTED_IN, "YOU DIDNT OPT FOR THE RISK");
-      // set state to stop reentrancy
       setTokenState(tokenIds[i], STATE_EXECUTED);
       if (!didSheepDefeatWolves(tokenIds[i])) continue;
       
@@ -209,7 +210,6 @@ contract RiskyGame is
       require(woolfReborn.ownerOf(tokenIds[i]) == _msgSender(), "SWIPER NO SWIPING");
       require(!_isSheep(tokenIds[i]), "SHEEPS DONT STEAL");
       require(getTokenState(tokenIds[i]) == STATE_UNDECIDED, "CANT CLAIM TWICE");
-      // set state to stop reentrancy
       setTokenState(tokenIds[i], STATE_EXECUTED);
       alpha = _alphaForWolf(tokenIds[i]);
       temp = totalWolfEarnings * alpha / TOTAL_ALPHA;
@@ -275,9 +275,10 @@ contract RiskyGame is
    * begins risky game by getting a random number from Chainlink
    */
   function initiateRiskGame() external onlyOwner {
+    //randomSeed = 0x467284632982427432; // CHAINLINK CALL HERE, NEED CALLBACK
     optInsEnabled = false;
     requestRandomness(
-      0xAA77729D3466CA35AE8D28B3BBAC7CC36A5031EFDC430821C02BC31A238AF445, // TODO: INSERT MAINNET VALUE
+      0xAA77729D3466CA35AE8D28B3BBAC7CC36A5031EFDC430821C02BC31A238AF445, 
       1 ether // TODO: FEE AMOUNT
     );
   }

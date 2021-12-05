@@ -18,6 +18,10 @@ contract WoolPouch is ERC721Upgradeable, OwnableUpgradeable, PausableUpgradeable
 
   - Claiming can lead to a tiny round down. This can result in negligible, but real losses in dust. This is a tradeoff made to save gas by not requiring storage of already claimed balances.
 
+  - Frontrunning protection: Transfers will revert if WOOL was claimed in the same block.
+    Still, users need to be careful when buying WOOL pouches, as the unclaimed WOOL displayed on websites like OpenSea can be out of sync with the blockchain.
+    A longer cooldown on transfers was considered, but ultimately not implemented as it introduces UX issues and additional complexity.
+  
   */
 
   using Strings for uint256;
@@ -114,6 +118,27 @@ contract WoolPouch is ERC721Upgradeable, OwnableUpgradeable, PausableUpgradeable
     _mint(to, minted);
   }
 
+  function transferFrom(
+        address from,
+        address to,
+        uint256 tokenId
+    ) public override {
+        require(_isApprovedOrOwner(_msgSender(), tokenId), "ERC721: transfer caller is not owner nor approved");
+        require(pouches[tokenId].lastClaimTimestamp < block.timestamp, "Cannot claim immediately before a transfer");
+        _transfer(from, to, tokenId);
+    }
+
+  function safeTransferFrom(
+        address from,
+        address to,
+        uint256 tokenId,
+        bytes memory _data
+    ) public override {
+        require(_isApprovedOrOwner(_msgSender(), tokenId), "ERC721: transfer caller is not owner nor approved");
+        require(pouches[tokenId].lastClaimTimestamp < block.timestamp, "Cannot claim immediately before a transfer");
+        _safeTransfer(from, to, tokenId, _data);
+    }
+
   /** ADMIN */
 
   /**
@@ -153,7 +178,7 @@ contract WoolPouch is ERC721Upgradeable, OwnableUpgradeable, PausableUpgradeable
     uint256 endTime = uint256(pouch.startTimestamp) + uint256(pouch.duration) * SECONDS_PER_DAY;
     uint256 guaranteed;
     if (endTime > pouch.lastClaimTimestamp)
-      guaranteed = (endTime - pouch.lastClaimTimestamp) * uint256(pouch.amount) / (uint256(pouch.duration) * 1 days);
+      guaranteed = (pouch.initialClaimed ? 0 : START_VALUE) + (endTime - pouch.lastClaimTimestamp) * uint256(pouch.amount) / (uint256(pouch.duration) * 1 days) - amountAvailable(tokenId);
     return string(abi.encodePacked(
       '<svg id="woolpouch" width="100%" height="100%" version="1.1" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">'
       '<image x="0" y="0" width="64" height="64" image-rendering="pixelated" preserveAspectRatio="xMidYMid" xlink:href="data:image/gif;base64,',gif,
@@ -161,9 +186,9 @@ contract WoolPouch is ERC721Upgradeable, OwnableUpgradeable, PausableUpgradeable
       (guaranteed / 1 ether).toString(),
       '</tspan></text><text font-family="monospace"><tspan x="4" y="9" font-size="0.25em">Claimable WOOL:</tspan><tspan id="b" x="44" y="9" font-size="0.25em">',
       (amountAvailable(tokenId) / 1 ether).toString(),
-      '</tspan></text><text fill="red" font-family="monospace"><tspan x="1" y="13" font-size="0.125em">Assume that if you buy, there will be ',
-      (guaranteed / 1 ether).toString(),
-      ' available to claim</tspan></text>',
+      '</tspan></text>'//<text fill="red" font-family="monospace"><tspan x="1" y="13" font-size="0.125em">Assume that if you buy, there will be ',
+      //(guaranteed / 1 ether).toString(),
+      //' available to claim</tspan></text>',
       '</svg>'
     ));
   }
@@ -195,12 +220,12 @@ contract WoolPouch is ERC721Upgradeable, OwnableUpgradeable, PausableUpgradeable
     uint256 endTime = uint256(pouch.startTimestamp) + uint256(pouch.duration) * SECONDS_PER_DAY;
     uint256 guaranteed;
     if (endTime > pouch.lastClaimTimestamp)
-      guaranteed = (endTime - pouch.lastClaimTimestamp) * uint256(pouch.amount) / (uint256(pouch.duration) * 1 days);
+      guaranteed = (pouch.initialClaimed ? 0 : START_VALUE) + (endTime - pouch.lastClaimTimestamp) * uint256(pouch.amount) / (uint256(pouch.duration) * 1 days) - amountAvailable(tokenId);
     string memory attributes = string(abi.encodePacked(
       attributeForTypeAndValue("Initial Balance", 
         uint256((pouch.amount + START_VALUE) / 1 ether).toString(),
       true),',',
-      attributeForTypeAndValue("Guaranteed Balance", 
+      attributeForTypeAndValue("Remaining Balance", 
         uint256(guaranteed / 1 ether).toString(),
       true),',',
       attributeForTypeAndValue("Available to Claim", (
@@ -215,16 +240,23 @@ contract WoolPouch is ERC721Upgradeable, OwnableUpgradeable, PausableUpgradeable
           " Days"
         )),
       false),',',
-      attributeForTypeAndValue("Last Refreshed",
+      '{"trait_type":"Last Refreshed","display_type":"date","value":',
+      block.timestamp.toString(),
+      '},',
+      attributeForTypeAndValue("Last Refreshed Time",
         string(abi.encodePacked(
-          padNumber(uint256(dateTime.getMonth(block.timestamp))),'/',
-          padNumber(uint256(dateTime.getDay(block.timestamp))),'/',
-          uint256(dateTime.getYear(block.timestamp)).toString(),' ',
           padNumber(uint256(dateTime.getHour(block.timestamp))),':',
           padNumber(uint256(dateTime.getMinute(block.timestamp))),':',
           padNumber(uint256(dateTime.getSecond(block.timestamp))),' UTC'
         )),
-      false)
+      false),',',
+      attributeForTypeAndValue("Last Refreshed Date",
+        string(abi.encodePacked(
+          padNumber(uint256(dateTime.getMonth(block.timestamp))),'/',
+          padNumber(uint256(dateTime.getDay(block.timestamp))),'/',
+          uint256(dateTime.getYear(block.timestamp)).toString()
+        )),
+      false)   
     ));
     return string(abi.encodePacked(
       '[',
